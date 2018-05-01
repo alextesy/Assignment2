@@ -3,6 +3,7 @@ install.packages("readxl")
 install.packages("zoo")
 install.packages("arules")
 install.packages("rpart")
+install.packages("party")
 
 
 library("zoo")
@@ -10,7 +11,7 @@ library("caret")
 library('readxl')
 library('arules')
 library('rpart')
-
+library('party')
 
 #Turn the data into a DATAFRAME
 GermanCredit <- read_xlsx("GermanCredit.xlsx", col_names=FALSE)
@@ -44,32 +45,48 @@ for (i in 1:13) {
 
 
 
-#Replacint NA and Dividing into Training and Testing Set
+#Replacing NA 
 df2 <-as.data.frame(lapply(df, myFun))
-inTrain<-createDataPartition(y=df2$class,p=0.8 ,list=FALSE)
-training<-df2[inTrain,]x
-testing<-df2[-inTrain,]
+
 
 
 
 #Discretization
-df2$Average_Credit_Balance <- discretize(df2$Average_Credit_Balance,breaks = 3,labels = c("Low","Medium","High"))
-df2$over_draft <- discretize(df2$over_draft,breaks = 3,labels = c("Low","Medium","High"))
-i=0
-for(x in df2$cc_age){
-  i=i+1
-  if(is.na(x)==TRUE){
-    next
-  }else if(x<=30){
-    df2[i,"cc_age"]="Young"
-  } else if(x>30 & x<=60){
-    df2[i,"cc_age"]="Middle"
-  } else{
-    df2[i,"cc_age"]="Old"
-  }
-}
-df2$cc_age<-as.factor(df2$cc_age)
+df2$Average_Credit_Balance <- discretize(df2$Average_Credit_Balance,breaks = 4,method = 'frequency',labels = c("Low","Medium","High","Extreme"))
+df2$over_draft <- discretize(df2$over_draft,breaks = 4,method = 'frequency',labels = c("Low","Medium","High","Extreme"))
+df2$cc_age<- discretize(df2$cc_age,breaks = 3,method = 'frequency',labels = c("Young","Middle","Old"))
 
-#MODEL
-tree=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=200)  )
+
+
+#Dividing into Training and Testing Set
+inTrain<-createDataPartition(y=df2$class,p=0.8 ,list=FALSE)
+training<-df2[inTrain,]
+testing<-df2[-inTrain,]
+
+
+#Gini Model
+giniTree1=rpart(class~.,training,method = "class",control = list(minsplit=20))
+plot(giniTree1)
+text(giniTree1)
+
+giniTree2=rpart(class~.,training,method = "class",control = list(minsplit=50))
+plot(giniTree2)
+text(giniTree2)
+
+#Information Model
+informationTree1=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=20))
+plot(informationTree1)
+text(informationTree1)
+
+informationTree2=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=100))
+plot(informationTree2)
+text(informationTree2)
+
+#Prediction
+giniNbPredict<-predict(giniTree, newdata=testing)
+informationNbPredict<-predict(informationTree, newdata=testing)
+
+giniCM<-confusionMatrix(giniNbPredict, reference=testing$class)
+informationCM<-confusionMatrix(informationNbPredict, reference=testing$class)
+
 
