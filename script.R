@@ -1,35 +1,59 @@
-install.packages("caret")
-install.packages("readxl")
-install.packages("zoo")
-install.packages("arules")
-install.packages("rpart")
-install.packages("party")
 
+#Install Libraries
+installLib<-function(){
+  if("caret" %in% rownames(installed.packages())==FALSE)
+    install.packages("caret")
+  if("readxl" %in% rownames(installed.packages())==FALSE)
+    install.packages("readxl")
+  if("zoo" %in% rownames(installed.packages())==FALSE)
+    install.packages("zoo")
+  if("arules" %in% rownames(installed.packages())==FALSE)
+    install.packages("arules")
+  if("rpart" %in% rownames(installed.packages())==FALSE)
+    install.packages("rpart")
+  if("party" %in% rownames(installed.packages())==FALSE)
+    install.packages("party")
+  if("RColorBrewer" %in% rownames(installed.packages())==FALSE)
+    install.packages("RColorBrewer")
+  if("rattle" %in% rownames(installed.packages())==FALSE)
+    install.packages("rattle")
+}
 
-library("zoo")
-library("caret")
-library('readxl')
-library('arules')
-library('rpart')
-library('party')
+#Load Libraries
+lib<-function(){
+  library("RColorBrewer")
+  library("rattle")
+  library("zoo")
+  library("caret")
+  library('readxl')
+  library('arules')
+  library('rpart')
+  library('rpart.plot')
+  library('party')
+}
 
 #Turn the data into a DATAFRAME
-GermanCredit <- read_xlsx("GermanCredit.xlsx", col_names=FALSE)
-df<-data.frame(as.vector(strsplit(GermanCredit$X__2[1], ","))[[1]])
-for (i in 2:13) {
-  tmp<-as.vector(strsplit(GermanCredit$X__2[i], ","))[[1]]
-  df<-cbind(df,tmp)
-}
-for (i in 1:13) {
-  colnames(df)[i]<-GermanCredit$X__1[i]
-}
-df[apply(df, 2, function(x) x=="")] = NA
-for (i in 1:13) {
-  if(!is.na(as.numeric(as.character(df[1,i]))))
-  {
-    df[,i]<-as.numeric(as.character(df[,i]))
+intitiate<-function(){
+  GermanCredit <- read_xlsx("GermanCredit.xlsx", col_names=FALSE)
+  df<-data.frame(as.vector(strsplit(GermanCredit$X__2[1], ","))[[1]])
+  for (i in 2:13) {
+    tmp<-as.vector(strsplit(GermanCredit$X__2[i], ","))[[1]]
+    df<-cbind(df,tmp)
   }
+  for (i in 1:13) {
+    colnames(df)[i]<-GermanCredit$X__1[i]
+  }
+  df[apply(df, 2, function(x) x=="")] = NA
+  for (i in 1:13) {
+    if(!is.na(as.numeric(as.character(df[1,i]))))
+    {
+      df[,i]<-as.numeric(as.character(df[,i]))
+    }
+  }
+  return (df)
 }
+
+
 
 #Function for Replacing NA
   myFun <- function(x) {
@@ -45,11 +69,11 @@ for (i in 1:13) {
 
 
 
-#Replacing NA 
-df2 <-as.data.frame(lapply(df, myFun))
+installLib()
+lib()
+df=intitiate()
 
-
-
+df2 <-as.data.frame(lapply(df, myFun)) #Replacing NA 
 
 #Discretization
 df2$Average_Credit_Balance <- discretize(df2$Average_Credit_Balance,breaks = 4,method = 'frequency',labels = c("Low","Medium","High","Extreme"))
@@ -66,24 +90,27 @@ testing<-df2[-inTrain,]
 
 #Gini Model
 giniTree1=rpart(class~.,training,method = "class",control = list(minsplit=20))
-plot(giniTree1)
-text(giniTree1)
+fancyRpartPlot(giniTree1)
+
 
 giniTree2=rpart(class~.,training,method = "class",control = list(minsplit=50))
-plot(giniTree2)
-text(giniTree2)
+fancyRpartPlot(giniTree2)
+
 
 #Information Model
 informationTree1=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=20))
-plot(informationTree1)
-text(informationTree1)
+fancyRpartPlot(informationTree1)
 
-informationTree2=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=100))
-plot(informationTree2)
-text(informationTree2)
+informationTree2=rpart(class~.,training,method = "class",parms = list(split = "information"),control = list(minsplit=50))
+fancyRpartPlot(informationTree2)
+
 
 #Prediction
-giniNbPredict<-predict(giniTree, newdata=testing)
+giniNbPredict1<-predict(giniTree1, newdata=testing)
+giniNbPredict2<-predict(giniTree2, newdata=testing)
+giniCM<-confusionMatrix(giniNbPredict1, reference=testing$class)
+giniCM<-confusionMatrix(giniNbPredict2, reference=testing$class)
+
 informationNbPredict<-predict(informationTree, newdata=testing)
 
 giniCM<-confusionMatrix(giniNbPredict, reference=testing$class)
